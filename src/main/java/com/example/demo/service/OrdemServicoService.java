@@ -3,6 +3,7 @@ package com.example.demo.service;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -78,13 +79,13 @@ public class OrdemServicoService {
             ordemServicoExistente.setTipoOs((String) dados.get("tipoOs"));
         }
         if(dados.containsKey("valor")) {
-            ordemServicoExistente.setValor((Double) dados.get("valor"));
+            ordemServicoExistente.setValor(new BigDecimal(dados.get("valor").toString()));
         }
         if(dados.containsKey("obs")) {
             ordemServicoExistente.setObs((String) dados.get("obs"));
         }
         if(dados.containsKey("dataAbertura")) {
-            ordemServicoExistente.setDataAbertura((LocalDate) dados.get("dataAbertura"));
+            ordemServicoExistente.setDataAbertura(LocalDate.parse(dados.get("dataAbertura").toString()));
         }
         if(dados.containsKey("status")) {
             ordemServicoExistente.setStatus((Integer) dados.get("status"));
@@ -96,12 +97,12 @@ public class OrdemServicoService {
             ordemServicoExistente.setDescricaoExecutado((String) dados.get("descricaoExecutado"));
         }
         if(dados.containsKey("dataExecucao")) {
-            ordemServicoExistente.setDataExecucao((LocalDate) dados.get("dataExecucao"));
+            ordemServicoExistente.setDataExecucao(LocalDate.parse(dados.get("dataExecucao").toString()));
         }
-        if(dados.containsKey("pessoaFisica")) {
+        if(dados.containsKey("pessoaFisicaCod")) {
             ordemServicoExistente.setPessoaFisicaCod((PessoaFisicaEntity) dados.get("pessoaFisicaCod"));
         }
-        if(dados.containsKey("pessoaJuridica")) {
+        if(dados.containsKey("pessoaJuridicaCod")) {
             ordemServicoExistente.setPessoaJuridicaCod((PessoaJuridicaEntity) dados.get("pessoaJuridicaCod"));
         }
         if(dados.containsKey("contratoCod")) {

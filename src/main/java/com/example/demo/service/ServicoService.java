@@ -3,6 +3,7 @@ package com.example.demo.service;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -57,13 +58,13 @@ public class ServicoService {
             servicoExistente.setDescricao((String) dados.get("descricao"));
         }
         if(dados.containsKey("dataInicio")) {
-            servicoExistente.setDataInicio((LocalDate) dados.get("dataInicio"));
+            servicoExistente.setDataInicio(LocalDate.parse(dados.get("dataInicio").toString()));
         }
         if(dados.containsKey("dataFim")) {
-            servicoExistente.setDataFim((LocalDate) dados.get("dataFim"));
+            servicoExistente.setDataFim(LocalDate.parse(dados.get("dataFim").toString()));
         }
         if(dados.containsKey("valorServico")) {
-            servicoExistente.setValorServico((Double) dados.get("valorServico"));
+            servicoExistente.setValorServico(new BigDecimal(dados.get("valorServico").toString()));
         }
 
         return repository.save(servicoExistente);

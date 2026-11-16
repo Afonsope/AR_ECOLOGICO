@@ -28,7 +28,13 @@ public class PrestadorServicoService {
         prestadorSevico.setTelefone(dadosPrestador.getTelefone());
         prestadorSevico.setNome(dadosPrestador.getNome());
         prestadorSevico.setEmail(dadosPrestador.getEmail());
+        prestadorSevico.setCpf(dadosPrestador.getCpf());
+        prestadorSevico.setRg(dadosPrestador.getRg());
+        prestadorSevico.setDataNascimento(dadosPrestador.getDataNascimento());
         prestadorSevico.setPagamento(dadosPrestador.getSalario());
+        prestadorSevico.setAdministrador(dadosPrestador.getAdministrador() == null
+                ? true : dadosPrestador.getAdministrador());
+        prestadorSevico.setSenha(dadosPrestador.getSenha());
 
         return repository.save(prestadorSevico);
     }
@@ -54,7 +60,12 @@ public class PrestadorServicoService {
         prestadorServicoExistente.setTelefone(dadosPrestador.getTelefone());
         prestadorServicoExistente.setNome(dadosPrestador.getNome());
         prestadorServicoExistente.setEmail(dadosPrestador.getEmail());
+        prestadorServicoExistente.setCpf(dadosPrestador.getCpf());
+        prestadorServicoExistente.setRg(dadosPrestador.getRg());
+        prestadorServicoExistente.setDataNascimento(dadosPrestador.getDataNascimento());
         prestadorServicoExistente.setPagamento(dadosPrestador.getSalario());
+        prestadorServicoExistente.setAdministrador(dadosPrestador.getAdministrador());
+        prestadorServicoExistente.setSenha(dadosPrestador.getSenha());
 
         return repository.save(prestadorServicoExistente);
     }
@@ -87,7 +98,23 @@ public class PrestadorServicoService {
             prestadorServicoExistente.setEmail((String) dados.get("email"));
         }
         if(dados.containsKey("salario")) {
-            prestadorServicoExistente.setPagamento((Double) dados.get("pagamento"));
+            prestadorServicoExistente.setPagamento(new java.math.BigDecimal(dados.get("salario").toString()));
+        }
+        if(dados.containsKey("administrador")) {
+            prestadorServicoExistente.setAdministrador((Boolean) dados.get("administrador"));
+        }
+        if(dados.containsKey("senha")) {
+            prestadorServicoExistente.setSenha((String) dados.get("senha"));
+        }
+        if(dados.containsKey("cpf")) {
+            prestadorServicoExistente.setCpf((String) dados.get("cpf"));
+        }
+        if(dados.containsKey("rg")) {
+            prestadorServicoExistente.setRg((String) dados.get("rg"));
+        }
+        if(dados.containsKey("dataNascimento")) {
+            prestadorServicoExistente.setDataNascimento(java.time.LocalDate.parse(
+                    dados.get("dataNascimento").toString()));
         }
 
         return repository.save(prestadorServicoExistente);        

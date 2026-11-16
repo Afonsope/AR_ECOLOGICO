@@ -1,8 +1,11 @@
 package com.example.demo.database.model;
 
 import java.time.LocalDate;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -23,7 +26,7 @@ import lombok.ToString;
 @NoArgsConstructor 
 @Entity 
 @Table(name = "SERVICOS")
-@ToString 
+@ToString(exclude = "ordensServico")
 public class ServicoEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -37,11 +40,12 @@ public class ServicoEntity {
     private LocalDate dataFim;
 
     @Column(name = "VALOR_SERVICO", precision = 10, scale = 2, nullable = false)
-    private Double valorServico;
+    private BigDecimal valorServico;
 
     @Column(name = "DESCRICAO", length = 500, nullable = false)
     private String descricao;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "servico")
     private List<ServicoRealizadoEntity> ordensServico = new ArrayList<>();
 }

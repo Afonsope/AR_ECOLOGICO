@@ -1,5 +1,8 @@
 package com.example.demo.dto;
 
+import java.time.LocalDate;
+import java.math.BigDecimal;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -30,5 +33,15 @@ public class PrestadorServicoDto {
 
     private String email;
 
-    private Double salario;
+    private String cpf;
+
+    private String rg;
+
+    private LocalDate dataNascimento;
+
+    private BigDecimal salario;
+
+    private Boolean administrador;
+
+    private String senha;
 }

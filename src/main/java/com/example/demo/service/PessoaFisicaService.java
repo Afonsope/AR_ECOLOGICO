@@ -98,7 +98,7 @@ public class PessoaFisicaService {
             pessoaFisicaExistente.setRg((String) dados.get("rg"));
         }
         if(dados.containsKey("dataNascimento")) {
-            pessoaFisicaExistente.setDataNascimento((LocalDate) dados.get("dataNascimento"));
+            pessoaFisicaExistente.setDataNascimento(LocalDate.parse(dados.get("dataNascimento").toString()));
         }
 
         return repository.save(pessoaFisicaExistente);        

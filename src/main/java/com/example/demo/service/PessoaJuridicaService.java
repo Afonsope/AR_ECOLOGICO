@@ -91,7 +91,7 @@ public class PessoaJuridicaService {
             pessoaJuridicaExistente.setCnpj((String) dados.get("cnpj"));
         }
         if(dados.containsKey("razaoSocial")) {
-            pessoaJuridicaExistente.setCnpj((String) dados.get("razaoSocial"));
+            pessoaJuridicaExistente.setRazaoSocial((String) dados.get("razaoSocial"));
         }
 
         return repository.save(pessoaJuridicaExistente);        

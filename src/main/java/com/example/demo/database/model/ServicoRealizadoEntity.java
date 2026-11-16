@@ -2,6 +2,7 @@ package com.example.demo.database.model;
 
 import java.math.BigDecimal;
 
+import jakarta.persistence.CheckConstraint;
 import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
@@ -16,7 +17,15 @@ import lombok.Setter;
 import lombok.ToString;
 
 @Entity
-@Table(name = "SERVICOS_REALIZADOS")
+@Table(
+    name = "SERVICOS_REALIZADOS",
+    check = {
+        @CheckConstraint(
+            name = "CK_SERVICOS_REALIZADOS",
+            constraint = "QTD > 0 AND VALOR >= 0 AND DESCONTO >= 0 AND DESCONTO <= QTD * VALOR"
+        )
+    }
+)
 @Getter
 @Setter
 @NoArgsConstructor

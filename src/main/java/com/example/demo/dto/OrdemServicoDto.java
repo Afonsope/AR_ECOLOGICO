@@ -1,6 +1,7 @@
 package com.example.demo.dto;
 
 import java.time.LocalDate;
+import java.math.BigDecimal;
 
 import com.example.demo.database.model.ContratoEntity;
 import com.example.demo.database.model.PessoaFisicaEntity;
@@ -21,7 +22,7 @@ import lombok.Setter;
 public class OrdemServicoDto {
     private String tipoOs;
 
-    private Double valor;
+    private BigDecimal valor;
 
     private String obs;
 

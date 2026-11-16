@@ -1,6 +1,7 @@
 package com.example.demo.dto;
 
 import java.time.LocalDate;
+import java.math.BigDecimal;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -20,7 +21,7 @@ public class ServicoDto {
 
     private LocalDate dataFim;
 
-    private Double valorServico;
+    private BigDecimal valorServico;
 
     private String descricao;
 }

@@ -56,7 +56,7 @@ public class PrestadorServicoController {
     }
 
     @DeleteMapping("/{codPessoa}")
-    public void deletaPessoa(Integer codPessoa) {
+    public void deletaPessoa(@PathVariable Integer codPessoa) {
         service.deletaPrestadorServico(codPessoa);
     }
 

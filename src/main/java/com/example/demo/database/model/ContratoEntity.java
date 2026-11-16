@@ -1,8 +1,6 @@
 package com.example.demo.database.model;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
 
 import jakarta.persistence.CheckConstraint;
 import jakarta.persistence.Column;
@@ -13,7 +11,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -36,7 +33,7 @@ import lombok.ToString;
         )
     }
 )
-@ToString 
+@ToString(exclude = {"pessoaFisicaCod", "pessoaJuridicaCod"})
 public class ContratoEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -66,9 +63,4 @@ public class ContratoEntity {
     @JoinColumn(name = "COD_PESSOA_JURIDICA")
     private PessoaJuridicaEntity pessoaJuridicaCod;
 
-     @OneToMany(mappedBy = "contrato")
-    private List<OrdemServicoEntity> ordensServico = new ArrayList<>();
-
-    @OneToMany(mappedBy = "contrato")
-    private List<ContratoEquipamentoEntity> equipamentos = new ArrayList<>();
 }

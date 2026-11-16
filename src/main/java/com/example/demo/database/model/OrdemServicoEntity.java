@@ -1,8 +1,11 @@
 package com.example.demo.database.model;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.CheckConstraint;
 import jakarta.persistence.Column;
@@ -40,7 +43,8 @@ import lombok.ToString;
         )
     }
 )
-@ToString 
+@ToString(exclude = {"pessoaFisicaCod", "pessoaJuridicaCod", "contratoCod",
+        "prestadorServicoCod", "servicos"})
 public class OrdemServicoEntity {
     @Id 
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -51,7 +55,7 @@ public class OrdemServicoEntity {
     private String tipoOs;
 
     @Column(name = "VALOR", precision = 10, scale = 2)
-    private Double valor;
+    private BigDecimal valor;
 
     @Column(name = "OBS", length = 500)
     private String obs;
@@ -87,6 +91,7 @@ public class OrdemServicoEntity {
     @JoinColumn(name = "PRESTADOR_SERVICO_COD")
     private PrestadorServicoEntity prestadorServicoCod;
 
-     @OneToMany(mappedBy = "ordemServico")
+    @JsonIgnore
+    @OneToMany(mappedBy = "ordemServico")
     private List<ServicoRealizadoEntity> servicos = new ArrayList<>();
 }

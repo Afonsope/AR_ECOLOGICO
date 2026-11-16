@@ -65,10 +65,10 @@ public class ContratoService {
             contratoExistente.setDescricao((String) dados.get("descricao"));
         }
         if(dados.containsKey("dataInicio")) {
-            contratoExistente.setDataInicio((LocalDate) dados.get("dataInicio"));
+            contratoExistente.setDataInicio(LocalDate.parse(dados.get("dataInicio").toString()));
         }
         if(dados.containsKey("dataFim")) {
-            contratoExistente.setDataFim((LocalDate) dados.get("dataFim"));
+            contratoExistente.setDataFim(LocalDate.parse(dados.get("dataFim").toString()));
         }
         if(dados.containsKey("tipoContrato")) {
             contratoExistente.setTipoContrato((String) dados.get("tipoContrato"));
@@ -76,10 +76,10 @@ public class ContratoService {
         if(dados.containsKey("obs")) {
             contratoExistente.setObs((String) dados.get("obs"));
         }
-        if(dados.containsKey("pessoaFisica")) {
+        if(dados.containsKey("pessoaFisicaCod")) {
             contratoExistente.setPessoaFisicaCod((PessoaFisicaEntity) dados.get("pessoaFisicaCod"));
         }
-        if(dados.containsKey("pessoaJuridica")) {
+        if(dados.containsKey("pessoaJuridicaCod")) {
             contratoExistente.setPessoaJuridicaCod((PessoaJuridicaEntity) dados.get("pessoaJuridicaCod"));
         }
 

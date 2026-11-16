@@ -141,7 +141,7 @@ function montarMenu() {
   const links = LINKS_MENU.map(([arquivo, nome]) =>
     `<a href="${arquivo}" class="${arquivo === paginaAtual ? 'ativo' : ''}">${nome}</a>`).join('');
   const usuario = Autenticacao.sessao()?.usuario ?? {};
-  document.getElementById('menu').innerHTML = `<h1>AR Ecológico</h1><div class="links">${links}</div>
+  document.getElementById('menu').innerHTML = `<h1 class="marca-logo" role="img" href="./static/img/logo.png" aria-label="AR Ecológico"></h1><div class="links">${links}</div>
     <div class="usuario">Olá, <strong>${usuario.nome ?? 'visitante'}</strong>
       <button type="button" class="secundario" data-sair>Sair</button></div>`;
   document.querySelector('[data-sair]').addEventListener('click', () => Autenticacao.sair());

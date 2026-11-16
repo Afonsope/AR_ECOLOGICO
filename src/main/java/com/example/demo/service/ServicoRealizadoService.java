@@ -65,10 +65,10 @@ public class ServicoRealizadoService {
             servicoRealizadoExistente.setQtd((Integer) dados.get("qtd"));
         }
         if (dados.containsKey("valor")) {
-            servicoRealizadoExistente.setValor((BigDecimal) dados.get("valor"));
+            servicoRealizadoExistente.setValor(new BigDecimal(dados.get("valor").toString()));
         }
         if (dados.containsKey("desconto")) {
-            servicoRealizadoExistente.setDesconto((BigDecimal) dados.get("desconto"));
+            servicoRealizadoExistente.setDesconto(new BigDecimal(dados.get("desconto").toString()));
         }
         if (dados.containsKey("obs")) {
             servicoRealizadoExistente.setObs((String) dados.get("obs"));
