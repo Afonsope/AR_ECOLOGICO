@@ -89,6 +89,12 @@ const ENTIDADES = {
   },
 };
 
+const CAMPOS_RESTRITOS_PARA_FUNCIONARIOS = {
+  funcionarios: ['pagamento'],
+  'ordens-servico': ['valor'],
+  servicos: ['valorServico'],
+};
+
 // ---------- Acesso a dados (único ponto que o back-end precisa atender) ----------
 async function requisitar(caminho, metodo = 'GET', corpo) {
   const resposta = await fetch(URL_API + caminho, {
@@ -105,12 +111,127 @@ const chaveLocal = (recurso) => `arecologico_${recurso}`;
 const lerLocal = (recurso) => JSON.parse(localStorage.getItem(chaveLocal(recurso)) || '[]');
 const gravarLocal = (recurso, lista) => localStorage.setItem(chaveLocal(recurso), JSON.stringify(lista));
 
+function filtrarOrdensConcluidasNoPeriodo(inicio, fim) {
+  return lerLocal('ordens-servico').filter((ordem) => {
+    if (ordem.status !== 'CONCLUIDA') return false;
+    const data = ordem.dataExecucao || ordem.dataAbertura;
+    if (inicio && (!data || data < inicio)) return false;
+    if (fim && (!data || data > fim)) return false;
+    return true;
+  });
+}
+
+function normalizarStatusOs(status) {
+  const normalizado = status.trim().toUpperCase().replace(/\s+/g, '_');
+  return normalizado === 'CANCELADO' ? 'CANCELADA' : normalizado;
+}
+
 const Repositorio = {
   async listar(recurso) {
     return USAR_DADOS_FALSOS ? lerLocal(recurso) : requisitar(`/${recurso}`);
   },
 
+  async consultarIndicadorPeriodo(endpoint, campo, inicio, fim) {
+    const parametros = new URLSearchParams();
+    if (inicio) parametros.set('inicio', inicio);
+    if (fim) parametros.set('fim', fim);
+    const consulta = parametros.toString();
+    const resposta = await requisitar(`/dashboard/${endpoint}${consulta ? `?${consulta}` : ''}`);
+    const valor = resposta?.[campo];
+    if (typeof valor !== 'number' || !Number.isFinite(valor)) {
+      throw new Error(`A API retornou um valor inválido para ${campo}.`);
+    }
+    return valor;
+  },
+
+  async faturamentoPeriodo(inicio, fim) {
+    if (!USAR_DADOS_FALSOS) {
+      return this.consultarIndicadorPeriodo('faturamento', 'faturamento', inicio, fim);
+    }
+    return filtrarOrdensConcluidasNoPeriodo(inicio, fim)
+      .reduce((total, ordem) => total + Number(ordem.valor || 0), 0);
+  },
+
+  async ticketMedioPeriodo(inicio, fim) {
+    if (!USAR_DADOS_FALSOS) {
+      return this.consultarIndicadorPeriodo('ticket-medio', 'ticketMedio', inicio, fim);
+    }
+    const valores = filtrarOrdensConcluidasNoPeriodo(inicio, fim)
+      .map((ordem) => ordem.valor)
+      .filter((valor) => valor !== null && valor !== undefined)
+      .map(Number);
+    if (!valores.length) return 0;
+    return Number((valores.reduce((total, valor) => total + valor, 0) / valores.length).toFixed(2));
+  },
+
+  async equipamentosPorContrato(contratos) {
+    if (!USAR_DADOS_FALSOS) {
+      const resposta = await requisitar('/dashboard/equipamentos-por-contrato');
+      if (!Array.isArray(resposta) || resposta.some((item) =>
+        !item || typeof item.contrato !== 'string' || typeof item.qtdTotal !== 'number' || !Number.isFinite(item.qtdTotal))) {
+        throw new Error('A API retornou uma lista inválida de equipamentos por contrato.');
+      }
+      return resposta;
+    }
+
+    const equipamentos = lerLocal('equipamentos');
+    const quantidadePorContrato = new Map();
+    equipamentos.forEach((equipamento) => {
+      quantidadePorContrato.set(
+        equipamento.contratoId,
+        (quantidadePorContrato.get(equipamento.contratoId) || 0) + 1,
+      );
+    });
+    return contratos.map((contrato) => ({
+      contrato: contrato.descricao,
+      qtdTotal: quantidadePorContrato.get(contrato.id) || 0,
+    }));
+  },
+
+  async ultimasOrdens(inicio, fim, ordens, clienteDoContrato, nomeFuncionario) {
+    if (USAR_DADOS_FALSOS) {
+      return ordens
+        .filter((ordem) => {
+          const data = ordem.dataAbertura;
+          if (inicio && (!data || data < inicio)) return false;
+          if (fim && (!data || data > fim)) return false;
+          return true;
+        })
+        .sort((a, b) => (b.dataAbertura || '').localeCompare(a.dataAbertura || ''))
+        .slice(0, 5)
+        .map((ordem) => ({
+          cliente: clienteDoContrato.get(ordem.contratoId) ?? '-',
+          problema: ordem.descricaoProblema,
+          funcionario: nomeFuncionario.get(ordem.funcionarioId) ?? '-',
+          status: ordem.status,
+          dataAbertura: ordem.dataAbertura ?? null,
+          dataEncerramento: ordem.dataExecucao ?? null,
+          valor: ordem.valor ?? null,
+        }));
+    }
+
+    const parametros = new URLSearchParams();
+    if (inicio) parametros.set('inicio', inicio);
+    if (fim) parametros.set('fim', fim);
+    const consulta = parametros.toString();
+    const resposta = await requisitar(`/dashboard/ultimas-os${consulta ? `?${consulta}` : ''}`);
+    const nullableString = (valor) => valor === null || typeof valor === 'string';
+    const listaValida = Array.isArray(resposta) && resposta.every((ordem) =>
+      ordem &&
+      typeof ordem.cliente === 'string' &&
+      typeof ordem.problema === 'string' &&
+      (ordem.funcionario === null || typeof ordem.funcionario === 'string') &&
+      typeof ordem.status === 'string' &&
+      STATUS_OS.includes(normalizarStatusOs(ordem.status)) &&
+      nullableString(ordem.dataAbertura) &&
+      nullableString(ordem.dataEncerramento) &&
+      (ordem.valor === null || (typeof ordem.valor === 'number' && Number.isFinite(ordem.valor))));
+    if (!listaValida) throw new Error('A API retornou uma lista inválida de últimas ordens de serviço.');
+    return resposta.map((ordem) => ({ ...ordem, status: normalizarStatusOs(ordem.status) }));
+  },
+
   async salvar(recurso, registro) {
+    Autenticacao.exigirAdministrador();
     if (!USAR_DADOS_FALSOS) {
       return registro.id
         ? requisitar(`/${recurso}/${registro.id}`, 'PUT', registro)
@@ -125,6 +246,7 @@ const Repositorio = {
   },
 
   async excluir(recurso, id) {
+    Autenticacao.exigirAdministrador();
     if (!USAR_DADOS_FALSOS) return requisitar(`/${recurso}/${id}`, 'DELETE');
     gravarLocal(recurso, lerLocal(recurso).filter((item) => item.id !== id));
   },
@@ -132,14 +254,21 @@ const Repositorio = {
 
 // ---------- Menu lateral ----------
 const LINKS_MENU = [
-  ['../index.html', 'Início'], ['../templates/Dashboard.html', 'Dashboard'], ['../templates/Cliente.html', 'Clientes'],
-  ['../templates/Contrato.html', 'Contratos'], ['../templates/Servico.html', 'Serviços / OS'], ['../templates/Funcionario.html', 'Funcionários'], ['../templates/Relatorio.html', 'Relatórios'],
+  ['index.html', 'Início'], ['templates/Dashboard.html', 'Dashboard'], ['templates/Cliente.html', 'Clientes'],
+  ['templates/Contrato.html', 'Contratos'], ['templates/Servico.html', 'Serviços / OS'], ['templates/Funcionario.html', 'Funcionários'], ['templates/Relatorio.html', 'Relatórios'],
 ];
 
 function montarMenu() {
   const paginaAtual = location.pathname.split('/').pop() || 'index.html';
-  const links = LINKS_MENU.map(([arquivo, nome]) =>
-    `<a href="${arquivo}" class="${arquivo === paginaAtual ? 'ativo' : ''}">${nome}</a>`).join('');
+  const administrador = Autenticacao.ehAdministrador();
+  const prefixo = location.pathname.toLowerCase().includes('/templates/') ? '../' : '';
+  document.querySelectorAll('[data-admin-only]').forEach((item) => { item.hidden = !administrador; });
+  const links = LINKS_MENU
+    .filter(([, nome]) => administrador || !['Dashboard', 'Relatórios'].includes(nome))
+    .map(([arquivo, nome]) => {
+      const ativo = arquivo.split('/').pop().toLowerCase() === paginaAtual.toLowerCase();
+      return `<a href="${prefixo}${arquivo}" class="${ativo ? 'ativo' : ''}">${nome}</a>`;
+    }).join('');
   const usuario = Autenticacao.sessao()?.usuario ?? {};
   document.getElementById('menu').innerHTML = `<h1 class="marca-logo" role="img" href="./static/img/logo.png" aria-label="AR Ecológico"></h1><div class="links">${links}</div>
     <div class="usuario">Olá, <strong>${usuario.nome ?? 'visitante'}</strong>
@@ -192,50 +321,60 @@ function criarHtmlDoCampo(definicao) {
 }
 
 function criarEsqueleto(secao, entidade) {
+  const administrador = Autenticacao.ehAdministrador();
   secao.classList.add('secao');
   secao.innerHTML = `
     <h2>${entidade.titulo}</h2>
     <div class="barra-ferramentas">
       <input type="search" placeholder="Buscar..." data-busca>
-      <button type="button" data-novo>+ Novo</button>
+      ${administrador ? '<button type="button" data-novo>+ Novo</button>' : ''}
     </div>
     <div class="tabela-rolagem"><table><thead></thead><tbody></tbody></table></div>
-    <dialog><form class="formulario" method="dialog">
+    ${administrador ? `<dialog><form class="formulario" method="dialog">
       <input type="hidden" name="id">
       ${entidade.campos.map(criarHtmlDoCampo).join('')}
       <div class="rodape">
         <button type="button" class="secundario" data-cancelar>Cancelar</button>
         <button type="submit">Salvar</button>
       </div>
-    </form></dialog>`;
+    </form></dialog>` : ''}`;
 }
 
 function iniciarTelaCrud(secao) {
   const entidade = ENTIDADES[secao.dataset.entidade];
+  const administrador = Autenticacao.ehAdministrador();
   criarEsqueleto(secao, entidade);
 
   const corpoTabela = secao.querySelector('tbody');
   const caixaBusca = secao.querySelector('[data-busca]');
   const janela = secao.querySelector('dialog');
   const formulario = secao.querySelector('form');
-  const colunas = entidade.colunas.map((nome) => entidade.campos.find((c) => c.nome === nome));
+  const camposRestritos = administrador ? [] : CAMPOS_RESTRITOS_PARA_FUNCIONARIOS[entidade.recurso] ?? [];
+  const colunas = entidade.colunas
+    .filter((nome) => !camposRestritos.includes(nome))
+    .map((nome) => entidade.campos.find((c) => c.nome === nome));
 
   secao.querySelector('thead').innerHTML =
-    `<tr>${colunas.map((c) => `<th>${c.rotulo}</th>`).join('')}<th>Ações</th></tr>`;
+    `<tr>${colunas.map((c) => `<th>${c.rotulo}</th>`).join('')}${administrador ? '<th>Ações</th>' : ''}</tr>`;
 
   async function atualizarTabela() {
     const [registros, rotulos] = await Promise.all([Repositorio.listar(entidade.recurso), carregarRotulos(entidade)]);
     const termo = caixaBusca.value.toLowerCase();
-    const filtrados = registros.filter((r) => JSON.stringify(Object.values(r)).toLowerCase().includes(termo));
+    const filtrados = registros.filter((r) => {
+      const valores = camposRestritos.length
+        ? Object.entries(r).filter(([nome]) => !camposRestritos.includes(nome)).map(([, valor]) => valor)
+        : Object.values(r);
+      return JSON.stringify(valores).toLowerCase().includes(termo);
+    });
 
     corpoTabela.innerHTML = filtrados.length
       ? filtrados.map((registro) => `
         <tr>${colunas.map((c) => `<td data-rotulo="${c.rotulo}">${celulaDaTabela(c, registro[c.nome], rotulos)}</td>`).join('')}
-          <td class="acoes">
+          ${administrador ? `<td class="acoes">
             <button class="secundario" data-editar="${registro.id}">Editar</button>
             <button class="perigo" data-excluir="${registro.id}">Excluir</button>
-          </td></tr>`).join('')
-      : `<tr><td class="vazio" colspan="${colunas.length + 1}">Nenhum registro encontrado.</td></tr>`;
+          </td>` : ''}</tr>`).join('')
+      : `<tr><td class="vazio" colspan="${colunas.length + (administrador ? 1 : 0)}">Nenhum registro encontrado.</td></tr>`;
   }
 
   async function preencherSelects() {
@@ -260,6 +399,7 @@ function iniciarTelaCrud(secao) {
   }
 
   async function abrirFormulario(registro = {}) {
+    Autenticacao.exigirAdministrador();
     await preencherSelects();
     formulario.reset();
     formulario.elements.id.value = registro.id ?? '';
@@ -279,17 +419,20 @@ function iniciarTelaCrud(secao) {
     return registro;
   }
 
-  secao.querySelector('[data-novo]').addEventListener('click', () => abrirFormulario());
-  secao.querySelector('[data-cancelar]').addEventListener('click', () => janela.close());
-  caixaBusca.addEventListener('input', atualizarTabela);
-  formulario.addEventListener('change', atualizarCamposCondicionais);
+  if (administrador) {
+    secao.querySelector('[data-novo]').addEventListener('click', () => abrirFormulario());
+    secao.querySelector('[data-cancelar]').addEventListener('click', () => janela.close());
+    formulario.addEventListener('change', atualizarCamposCondicionais);
 
-  formulario.addEventListener('submit', async () => {
-    await Repositorio.salvar(entidade.recurso, lerFormulario());
-    await atualizarTabela();
-  });
+    formulario.addEventListener('submit', async () => {
+      await Repositorio.salvar(entidade.recurso, lerFormulario());
+      await atualizarTabela();
+    });
+  }
+  caixaBusca.addEventListener('input', atualizarTabela);
 
   corpoTabela.addEventListener('click', async (evento) => {
+    if (!administrador) return;
     const { editar, excluir } = evento.target.dataset;
     if (editar) {
       const registros = await Repositorio.listar(entidade.recurso);
@@ -370,23 +513,84 @@ function desenharTabelaResumo(idElemento, cabecalhos, linhas, textoVazio) {
 
 async function montarDashboard() {
   const seletor = document.getElementById('periodo');
+
   const [clientes, contratos, todasOrdens, funcionarios] = await Promise.all(
     ['clientes', 'contratos', 'ordensServico', 'funcionarios'].map((chave) => Repositorio.listar(ENTIDADES[chave].recurso)));
   const nomeFuncionario = new Map(funcionarios.map((f) => [f.id, f.nome]));
-  const nomeContrato = new Map(contratos.map((c) => [c.id, c.descricao]));
 
-  function atualizar() {
+  const nomeCliente = new Map(clientes.map((c) => [c.id, c.nome]));
+  const clienteDoContrato = new Map(contratos.map((c) => [c.id, nomeCliente.get(c.clienteId)]));
+
+  const [servicos, servicosRealizados] = await Promise.all(
+    ['servicos', 'servicos-realizados'].map((recurso) => Repositorio.listar(recurso)));
+  const nomeServico = new Map(servicos.map((s) => [s.id, s.descricao]));
+
+  const mensagemFaturamento = document.getElementById('mensagemFaturamento');
+  const mensagemTicketMedio = document.getElementById('mensagemTicketMedio');
+  const mensagemEquipamentos = document.getElementById('mensagemEquipamentos');
+  const mensagemUltimasOs = document.getElementById('mensagemUltimasOs');
+  let atualizacao = 0;
+
+  async function carregarIndicador(consulta, mensagem, titulo, idAtualizacao) {
+    try {
+      const valor = await consulta();
+      if (idAtualizacao === atualizacao) mensagem.textContent = '';
+      return valor;
+    } catch (erro) {
+      if (idAtualizacao === atualizacao) {
+        mensagem.textContent = `Não foi possível carregar ${titulo}: ${erro.message}`;
+      }
+      return null;
+    }
+  }
+
+  const equipamentosPorContrato = await carregarIndicador(
+    () => Repositorio.equipamentosPorContrato(contratos),
+    mensagemEquipamentos,
+    'os equipamentos por contrato',
+    0,
+  );
+
+  async function atualizar() {
+    const idAtualizacao = ++atualizacao;
     const dias = Number(seletor.value);
     const ordens = dias ? todasOrdens.filter((o) => (o.dataAbertura || '') >= dataEmDias(-dias)) : todasOrdens;
     const concluidas = ordens.filter((o) => o.status === 'CONCLUIDA');
-    const faturamento = somar(concluidas, 'valor');
+    const inicio = dias ? dataEmDias(-dias) : null;
+    const fim = dias ? dataEmDias(0) : null;
+    const [faturamentoPeriodo, ticketMedio, ordensRecentes] = await Promise.all([
+      carregarIndicador(
+        () => Repositorio.faturamentoPeriodo(inicio, fim),
+        mensagemFaturamento,
+        'o faturamento do período',
+        idAtualizacao,
+      ),
+      carregarIndicador(
+        () => Repositorio.ticketMedioPeriodo(inicio, fim),
+        mensagemTicketMedio,
+        'o ticket médio do período',
+        idAtualizacao,
+      ),
+      carregarIndicador(
+        () => Repositorio.ultimasOrdens(inicio, fim, todasOrdens, clienteDoContrato, nomeFuncionario),
+        mensagemUltimasOs,
+        'as últimas ordens de serviço',
+        idAtualizacao,
+      ),
+    ]);
+    if (idAtualizacao !== atualizacao) return;
+
     const emAberto = ordens.filter((o) => ['ABERTA', 'EM_ANDAMENTO'].includes(o.status)).length;
     const vencendo = contratos.filter((c) => c.dataFim >= dataEmDias(0) && c.dataFim <= dataEmDias(30));
+    const ativos = contratos.filter((c) => !c.dataFim || c.dataFim >= dataEmDias(0));
+    const pagamentos = Object.fromEntries(funcionarios.map((f) => [f.nome, f.pagamento || 0]));
+    
 
     document.getElementById('cartoes').innerHTML = [
-      ['Clientes', clientes.length, 'Cliente.html'], ['Contratos', contratos.length, 'Contrato.html'],
-      ['OS em aberto', emAberto, 'Servico.html'], ['Faturamento no período', formatarMoeda(faturamento)],
-      ['Ticket médio por OS', formatarMoeda(concluidas.length ? faturamento / concluidas.length : 0)],
+      ['Clientes', clientes.length, 'Cliente.html'], ['Contratos ativos', contratos.length, 'Contrato.html'],
+      ['OS em aberto', emAberto, 'Servico.html'],
+      ['Faturamento no período', faturamentoPeriodo === null ? 'Indisponível' : formatarMoeda(faturamentoPeriodo)],
+      ['Ticket médio por OS', ticketMedio === null ? 'Indisponível' : formatarMoeda(ticketMedio)],
       ['Contratos vencendo em 30 dias', vencendo.length, 'Contrato.html'],
     ].map(([nome, valor, link]) => {
       const conteudo = `<small>${nome}</small><strong>${valor}</strong>`;
@@ -399,6 +603,14 @@ async function montarDashboard() {
       porFuncionario[nome] = (porFuncionario[nome] || 0) + (ordem.valor || 0);
     }
 
+    const idsOs = new Set(ordens.map((o) => o.id));
+    const liquidoPorServico = {};
+    for (const item of servicosRealizados.filter((s) => idsOs.has(s.osId))) {
+      const nome = nomeServico.get(item.servicoId) ?? 'Serviço';
+      liquidoPorServico[nome] = (liquidoPorServico[nome] || 0) + item.qtd * item.valor - (item.desconto || 0);
+    }
+    
+
     desenharFaturamentoMensal('graficoFaturamento', todasOrdens);
     desenharRosca('graficoStatus', contarPor(ordens, 'status'), COR_STATUS);
     desenharBarras('graficoTipoOs', contarPor(ordens, 'tipoOs'));
@@ -407,12 +619,32 @@ async function montarDashboard() {
     desenharBarras('graficoTipoContrato', contarPor(contratos, 'tipoContrato'));
     desenharBarras('graficoCidade', contarPor(clientes, 'cidade'), { rotular: (nome) => nome });
     desenharRosca('graficoTipoCliente', contarPor(clientes, 'tipoCliente'));
+    desenharBarras('graficoPagamentoFuncionarios', pagamentos, { rotular: (nome) => nome, valor: formatarMoeda });
+    desenharBarras('graficoServicos', liquidoPorServico, { rotular: (nome) => nome, valor: formatarMoeda });
 
-    const recentes = [...ordens].sort((a, b) => (b.dataAbertura || '').localeCompare(a.dataAbertura || '')).slice(0, 5);
-    desenharTabelaResumo('ultimasOs', ['Problema', 'Contrato', 'Status', 'Valor'],
-      recentes.map((o) => [o.descricaoProblema, nomeContrato.get(o.contratoId) ?? '-',
-        `<span class="selo selo-${o.status}">${formatarOpcao(o.status)}</span>`, o.valor ? formatarMoeda(o.valor) : '-']),
-      'Nenhuma OS no período.');
+    if (equipamentosPorContrato === null) {
+      document.getElementById('graficoEquipamentos').innerHTML = '<p class="vazio">Dados indisponíveis.</p>';
+    } else {
+      const equipPorContrato = Object.fromEntries(
+        equipamentosPorContrato.map(({ contrato, qtdTotal }) => [contrato, qtdTotal]),
+      );
+      desenharBarras('graficoEquipamentos', equipPorContrato, { rotular: (nome) => nome });
+    }
+
+    if (ordensRecentes === null) {
+      document.getElementById('ultimasOs').innerHTML = '<p class="vazio">Dados indisponíveis.</p>';
+    } else {
+      desenharTabelaResumo('ultimasOs',
+        ['Cliente', 'Problema', 'Funcionário', 'Status', 'Abertura', 'Encerramento', 'Valor'],
+        ordensRecentes.map((ordem) => [
+          ordem.cliente, ordem.problema, ordem.funcionario ?? '-',
+          `<span class="selo selo-${ordem.status}">${formatarOpcao(ordem.status)}</span>`,
+          ordem.dataAbertura ? formatarData(ordem.dataAbertura) : '-',
+          ordem.dataEncerramento ? formatarData(ordem.dataEncerramento) : '-',
+          ordem.valor ? formatarMoeda(ordem.valor) : '-',
+        ]),
+        'Nenhuma OS no período.');
+    }
     desenharTabelaResumo('contratosVencendo', ['Contrato', 'Termina em'],
       vencendo.map((c) => [c.descricao, formatarData(c.dataFim)]), 'Nenhum contrato vence nos próximos 30 dias.');
   }
@@ -420,6 +652,8 @@ async function montarDashboard() {
   seletor.addEventListener('change', atualizar);
   atualizar();
 }
+
+
 
 // ---------- Inicialização ----------
 if (USAR_DADOS_FALSOS && typeof semearDadosDeExemplo === 'function') semearDadosDeExemplo();

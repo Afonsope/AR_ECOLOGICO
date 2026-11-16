@@ -17,6 +17,10 @@
           <option value="180" selected>Últimos 6 meses</option><option value="0">Todo o período</option>
         </select></label>
     </div>
+    <p id="mensagemFaturamento" class="erro" role="alert"></p>
+    <p id="mensagemTicketMedio" class="erro" role="alert"></p>
+    <p id="mensagemEquipamentos" class="erro" role="alert"></p>
+    <p id="mensagemUltimasOs" class="erro" role="alert"></p>
     <div id="cartoes" class="cartoes"></div>
     <div class="graficos">
       <div class="secao largo"><h3>Faturamento por mês (OS concluídas, últimos 6 meses)</h3><div id="graficoFaturamento"></div></div>
@@ -29,6 +33,9 @@
       <div class="secao"><h3>Pessoa física e jurídica</h3><div id="graficoTipoCliente"></div></div>
       <div class="secao largo"><h3>Últimas ordens de serviço</h3><div id="ultimasOs"></div></div>
       <div class="secao largo"><h3>Contratos vencendo em 30 dias</h3><div id="contratosVencendo"></div></div>
+      <div class="secao"><h3>Equipamentos por contrato</h3><div id="graficoEquipamentos"></div></div>
+      <div class="secao"><h3>Pagamento por funcionário</h3><div id="graficoPagamentoFuncionarios"></div></div>
+      <div class="secao"><h3>Faturamento líquido por serviço</h3><div id="graficoServicos"></div></div>
     </div>
   </main>
   <script src="../static/js/config.js"></script>
